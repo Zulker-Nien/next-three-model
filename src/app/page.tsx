@@ -1,113 +1,125 @@
-import Image from 'next/image'
+"use client";
+import { Canvas } from "@react-three/fiber";
+import { useControls } from "leva";
+import {
+  AccumulativeShadows,
+  RandomizedLight,
+  Center,
+  Environment,
+  OrbitControls,
+} from "@react-three/drei";
+import { startTransition, useState } from "react";
 
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex"></div>
+
+      <div className="relative flex place-items-center h-[60vh] w-[60vw]">
+        <Canvas shadows camera={{ position: [0, 0, 4.5], fov: 50 }}>
+          <group position={[0, -0.65, 0]}>
+            <Sphere />
+            <AccumulativeShadows
+              temporal
+              frames={200}
+              color="purple"
+              colorBlend={0.5}
+              opacity={1}
+              scale={10}
+              alphaTest={0.85}
+            >
+              <RandomizedLight
+                amount={8}
+                radius={5}
+                ambient={0.5}
+                position={[5, 3, 2]}
+                bias={0.001}
+              />
+            </AccumulativeShadows>
+          </group>
+          <Env />
+          <OrbitControls
+            autoRotate
+            // autoRotateSpeed={4}
+            // enablePan={false}
+            // enableZoom={false}
+            // minPolarAngle={Math.PI / 2.1}
+            // maxPolarAngle={Math.PI / 2.1}
+          />
+        </Canvas>
       </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left"></div>
     </main>
-  )
+  );
+}
+
+function Sphere() {
+  const { roughness } = useControls({
+    roughness: { value: 1, min: 0, max: 1 },
+  });
+
+  const [color, setColor] = useState("orange");
+  const [scaleX, setScaleX] = useState(1);
+  const [scaleY, setScaleY] = useState(1);
+  const [scaleZ, setScaleZ] = useState(1);
+  const { scale } = useControls({
+    scale: { value: 0.75, min: 0.75, max: 2 },
+    color: {
+      value: color,
+      options: ["black", "yellow", "white", "cyan", "blue", "red", "purple"],
+      // If onChange is present the value will not be reactive, see https://github.com/pmndrs/leva/blob/main/docs/advanced/controlled-inputs.md#onchange
+      // Instead we transition the preset value, which will prevents the suspense bound from triggering its fallback
+      // That way we can hang onto the current environment until the new one has finished loading ...
+      onChange: (value) => startTransition(() => setColor(value)),
+    },
+    width: {
+      value: 1,
+      min: 1,
+      max: 5,
+      onChange: (value) => startTransition(() => setScaleX(value)),
+    },
+    height: {
+      value: 1,
+      min: 1,
+      max: 5,
+      onChange: (value) => startTransition(() => setScaleY(value)),
+    },
+    length: {
+      value: 1,
+      min: 1,
+      max: 5,
+      onChange: (value) => startTransition(() => setScaleZ(value)),
+    },
+  });
+  // const { horizontalPlane } = useControls({
+  //   horizontalPlane: { value: 64, min: 1, max: 64 },
+  // });
+  // const { verticalPlane } = useControls({
+  //   verticalPlane: { value: 64, min: 1, max: 64 },
+  // });
+  const [shapes, setShapes] = useState("sphere");
+  const { shape } = useControls({
+    shape: {
+      value: shapes,
+      options: ["sphere", "box"],
+    },
+  });
+
+  return (
+    <Center top>
+      <mesh castShadow scale={[scaleX, scaleY, scaleZ]}>
+        {shape === "sphere" && <sphereGeometry args={[scale, 64, 64]} />}
+        {shape === "box" && <boxGeometry args={[scale, 1, 1]} />}
+        <meshStandardMaterial
+          metalness={1}
+          roughness={roughness}
+          color={color}
+        />
+      </mesh>
+    </Center>
+  );
+}
+function Env() {
+  return <Environment preset={"sunset"} background blur={1} />;
 }
