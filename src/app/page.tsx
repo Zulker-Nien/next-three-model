@@ -10,7 +10,7 @@ import {
   OrbitControls,
 } from "@react-three/drei";
 import type { PresetsType } from "@react-three/drei/helpers/environment-assets";
-import { Suspense, startTransition, useState } from "react";
+import { Suspense, startTransition, useRef, useState } from "react";
 import {
   ModelCompliancePanel,
   ModelHierarchy,
@@ -19,11 +19,33 @@ import {
   ModelUploadOverlay,
   type HierarchyNode,
   type LoadedModel,
+  type ModelCameraInfo,
   type ModelStats,
 } from "./ModelUpload";
 
-function CameraControls() {
+function CameraControls({
+  cameras,
+  activeCamera,
+  onActiveCameraChange,
+}: {
+  cameras: ModelCameraInfo[];
+  activeCamera: string;
+  onActiveCameraChange: (camera: string) => void;
+}) {
   const { camera } = useThree();
+
+  const defaultState = useRef<{
+    pos: number[];
+    quat: number[];
+    fov: number;
+  }>({
+    pos: camera.position.toArray(),
+    quat: camera.quaternion.toArray(),
+    fov: (camera as PerspectiveCamera).fov,
+  });
+
+  const options = ["orbit", ...cameras.map((c) => c.name)];
+
   useControls("Camera", {
     fov: {
       value: 50,
@@ -43,11 +65,44 @@ function CameraControls() {
         camera.position.z = value;
       },
     },
+    activeCamera: {
+      value: activeCamera,
+      options,
+      onChange: (value) => {
+        const cam = camera as PerspectiveCamera;
+        if (value === "orbit") {
+          camera.position.fromArray(defaultState.current.pos);
+          camera.quaternion.fromArray(defaultState.current.quat);
+          cam.fov = defaultState.current.fov;
+          cam.updateProjectionMatrix();
+        } else {
+          const modelCam = cameras.find((c) => c.name === value);
+          if (modelCam) {
+            camera.position.set(...modelCam.position);
+            camera.rotation.set(...modelCam.rotation);
+            cam.fov = modelCam.fov;
+            cam.updateProjectionMatrix();
+          }
+        }
+        onActiveCameraChange(value);
+      },
+    },
   });
+
   return null;
 }
 
-function SceneControls({ model }: { model: LoadedModel | null }) {
+function SceneControls({
+  model,
+  modelCameras,
+  activeCamera,
+  onActiveCameraChange,
+}: {
+  model: LoadedModel | null;
+  modelCameras: ModelCameraInfo[];
+  activeCamera: string;
+  onActiveCameraChange: (camera: string) => void;
+}) {
   const { envPreset } = useControls("Environment", {
     envPreset: {
       value: "sunset",
@@ -128,7 +183,11 @@ function SceneControls({ model }: { model: LoadedModel | null }) {
         enableZoom={enableZoom}
         enablePan={enablePan}
       />
-      <CameraControls />
+      <CameraControls
+        cameras={modelCameras}
+        activeCamera={activeCamera}
+        onActiveCameraChange={onActiveCameraChange}
+      />
     </>
   );
 }
@@ -137,21 +196,32 @@ export default function Home() {
   const [model, setModel] = useState<LoadedModel | null>(null);
   const [stats, setStats] = useState<ModelStats | null>(null);
   const [hierarchy, setHierarchy] = useState<HierarchyNode | null>(null);
+  const [modelCameras, setModelCameras] = useState<ModelCameraInfo[]>([]);
+  const [activeCamera, setActiveCamera] = useState("orbit");
 
   return (
     <main className="h-screen w-screen overflow-hidden">
       <div className="relative h-full w-full">
         <Canvas shadows camera={{ position: [0, 0, 4.5], fov: 50 }}>
-          <SceneControls model={model} />
+          <SceneControls
+            key={model?.url ?? "default"}
+            model={model}
+            modelCameras={modelCameras}
+            activeCamera={activeCamera}
+            onActiveCameraChange={setActiveCamera}
+          />
         </Canvas>
         <ModelUploadOverlay
           onModel={(m) => {
             setStats(null);
             setHierarchy(null);
+            setModelCameras([]);
+            setActiveCamera("orbit");
             setModel({
               ...m,
               onStats: (s) => setStats(s),
               onHierarchy: (h) => setHierarchy(h),
+              onCameras: (cams) => setModelCameras(cams),
             });
           }}
           hasModel={!!model}
@@ -159,6 +229,8 @@ export default function Home() {
             setModel(null);
             setStats(null);
             setHierarchy(null);
+            setModelCameras([]);
+            setActiveCamera("orbit");
           }}
         />
         <ModelInfoPanel stats={stats} />

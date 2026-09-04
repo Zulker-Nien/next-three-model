@@ -1,17 +1,21 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFBX, useGLTF, Center } from "@react-three/drei";
+import { useFBX, Center } from "@react-three/drei";
 import { useLoader } from "@react-three/fiber";
+import { useGltfWithKTX2 } from "./useGltfWithKTX2";
 import {
   BufferGeometry,
+  Camera,
   Material,
   Mesh,
   Object3D,
+  PerspectiveCamera,
+  Quaternion,
   SkinnedMesh,
   Texture,
-  AnimationClip,
   Box3,
   Vector3,
+  Euler,
 } from "three";
 import { STLLoader } from "three-stdlib";
 
@@ -184,6 +188,40 @@ function buildHierarchy(object: Object3D): HierarchyNode {
   };
 }
 
+export type ModelCameraInfo = {
+  uuid: string;
+  name: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  fov: number;
+  isPerspective: boolean;
+};
+
+function extractCameras(object: Object3D): ModelCameraInfo[] {
+  const cameras: ModelCameraInfo[] = [];
+  const position = new Vector3();
+  const rotation = new Euler();
+  const quaternion = new Quaternion();
+
+  object.traverse((child) => {
+    if (child instanceof Camera) {
+      child.getWorldPosition(position);
+      child.getWorldQuaternion(quaternion);
+      rotation.setFromQuaternion(quaternion);
+      cameras.push({
+        uuid: child.uuid,
+        name: child.name || `Camera ${cameras.length + 1}`,
+        position: [position.x, position.y, position.z],
+        rotation: [rotation.x, rotation.y, rotation.z],
+        fov: child instanceof PerspectiveCamera ? child.fov : 50,
+        isPerspective: child instanceof PerspectiveCamera,
+      });
+    }
+  });
+
+  return cameras;
+}
+
 export type LoadedModel = {
   url: string;
   type: ModelType;
@@ -191,6 +229,7 @@ export type LoadedModel = {
   fileSize: number;
   onStats?: (stats: ModelStats) => void;
   onHierarchy?: (root: HierarchyNode) => void;
+  onCameras?: (cameras: ModelCameraInfo[]) => void;
 };
 
 const ACCEPTED_EXTENSIONS: Record<string, ModelType> = {
@@ -215,7 +254,7 @@ export function ModelLoader({ model }: { model: LoadedModel }) {
 }
 
 function GltfModel({ model }: { model: LoadedModel }) {
-  const { scene } = useGLTF(model.url);
+  const { scene } = useGltfWithKTX2(model.url);
 
   useEffect(() => {
     if (model.onStats) {
@@ -223,6 +262,9 @@ function GltfModel({ model }: { model: LoadedModel }) {
     }
     if (model.onHierarchy) {
       model.onHierarchy(buildHierarchy(scene));
+    }
+    if (model.onCameras) {
+      model.onCameras(extractCameras(scene));
     }
   }, [scene, model]);
 
@@ -242,6 +284,9 @@ function FbxModel({ model }: { model: LoadedModel }) {
     }
     if (model.onHierarchy) {
       model.onHierarchy(buildHierarchy(fbx));
+    }
+    if (model.onCameras) {
+      model.onCameras(extractCameras(fbx));
     }
   }, [fbx, model]);
 
