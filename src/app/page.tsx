@@ -10,7 +10,12 @@ import {
   OrbitControls,
 } from "@react-three/drei";
 import type { PresetsType } from "@react-three/drei/helpers/environment-assets";
-import { startTransition, useState } from "react";
+import { Suspense, startTransition, useState } from "react";
+import {
+  ModelLoader,
+  ModelUploadOverlay,
+  type LoadedModel,
+} from "./ModelUpload";
 
 function CameraControls() {
   const { camera } = useThree();
@@ -37,7 +42,7 @@ function CameraControls() {
   return null;
 }
 
-function SceneControls() {
+function SceneControls({ model }: { model: LoadedModel | null }) {
   const { envPreset } = useControls("Environment", {
     envPreset: {
       value: "sunset",
@@ -82,7 +87,13 @@ function SceneControls() {
   return (
     <>
       <group position={[0, -0.65, 0]}>
-        <Shape />
+        {model ? (
+          <Suspense fallback={null}>
+            <ModelLoader model={model} />
+          </Suspense>
+        ) : (
+          <Shape />
+        )}
         <AccumulativeShadows
           temporal
           frames={frames}
@@ -118,12 +129,19 @@ function SceneControls() {
 }
 
 export default function Home() {
+  const [model, setModel] = useState<LoadedModel | null>(null);
+
   return (
     <main className="h-screen w-screen overflow-hidden">
       <div className="relative h-full w-full">
         <Canvas shadows camera={{ position: [0, 0, 4.5], fov: 50 }}>
-          <SceneControls />
+          <SceneControls model={model} />
         </Canvas>
+        <ModelUploadOverlay
+          onModel={setModel}
+          hasModel={!!model}
+          onRemove={() => setModel(null)}
+        />
       </div>
     </main>
   );
