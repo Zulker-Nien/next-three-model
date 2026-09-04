@@ -1,5 +1,6 @@
 "use client";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
+import type { PerspectiveCamera } from "three";
 import { useControls } from "leva";
 import {
   AccumulativeShadows,
@@ -8,58 +9,137 @@ import {
   Environment,
   OrbitControls,
 } from "@react-three/drei";
+import type { PresetsType } from "@react-three/drei/helpers/environment-assets";
 import { startTransition, useState } from "react";
+
+function CameraControls() {
+  const { camera } = useThree();
+  useControls("Camera", {
+    fov: {
+      value: 50,
+      min: 20,
+      max: 100,
+      onChange: (value) => {
+        const cam = camera as PerspectiveCamera;
+        cam.fov = value;
+        cam.updateProjectionMatrix();
+      },
+    },
+    cameraDistance: {
+      value: 4.5,
+      min: 1,
+      max: 15,
+      onChange: (value) => {
+        camera.position.z = value;
+      },
+    },
+  });
+  return null;
+}
+
+function SceneControls() {
+  const { envPreset } = useControls("Environment", {
+    envPreset: {
+      value: "sunset",
+      options: [
+        "sunset",
+        "dawn",
+        "night",
+        "warehouse",
+        "forest",
+        "apartment",
+        "studio",
+        "city",
+        "park",
+        "lobby",
+      ],
+    },
+    blur: { value: 1, min: 0, max: 1 },
+  });
+
+  const { autoRotate, autoRotateSpeed, enableZoom, enablePan } = useControls(
+    "OrbitControls",
+    {
+      autoRotate: { value: true },
+      autoRotateSpeed: { value: 2, min: 0, max: 10 },
+      enableZoom: { value: true },
+      enablePan: { value: true },
+    },
+  );
+
+  const {
+    shadowOpacity,
+    shadowColor,
+    shadowColorBlend,
+    frames,
+  } = useControls("Shadows", {
+    shadowOpacity: { value: 1, min: 0, max: 1 },
+    shadowColor: { value: "#8b00ff", options: ["#8b00ff", "black", "#000"] },
+    shadowColorBlend: { value: 0.5, min: 0, max: 1 },
+    frames: { value: 200, min: 1, max: 400, step: 1 },
+  });
+
+  return (
+    <>
+      <group position={[0, -0.65, 0]}>
+        <Shape />
+        <AccumulativeShadows
+          temporal
+          frames={frames}
+          color={shadowColor}
+          colorBlend={shadowColorBlend}
+          opacity={shadowOpacity}
+          scale={10}
+          alphaTest={0.85}
+        >
+          <RandomizedLight
+            amount={8}
+            radius={5}
+            ambient={0.5}
+            position={[5, 3, 2]}
+            bias={0.001}
+          />
+        </AccumulativeShadows>
+      </group>
+      <Environment
+        preset={envPreset as PresetsType}
+        background
+        blur={blur as unknown as number}
+      />
+      <OrbitControls
+        autoRotate={autoRotate}
+        autoRotateSpeed={autoRotateSpeed}
+        enableZoom={enableZoom}
+        enablePan={enablePan}
+      />
+      <CameraControls />
+    </>
+  );
+}
 
 export default function Home() {
   return (
     <main className="h-screen w-screen overflow-hidden">
       <div className="relative h-full w-full">
         <Canvas shadows camera={{ position: [0, 0, 4.5], fov: 50 }}>
-          <group position={[0, -0.65, 0]}>
-            <Sphere />
-            <AccumulativeShadows
-              temporal
-              frames={200}
-              color="purple"
-              colorBlend={0.5}
-              opacity={1}
-              scale={10}
-              alphaTest={0.85}
-            >
-              <RandomizedLight
-                amount={8}
-                radius={5}
-                ambient={0.5}
-                position={[5, 3, 2]}
-                bias={0.001}
-              />
-            </AccumulativeShadows>
-          </group>
-          <Env />
-          <OrbitControls
-            autoRotate
-            // autoRotateSpeed={4}
-            // enablePan={false}
-            // enableZoom={false}
-            // minPolarAngle={Math.PI / 2.1}
-            // maxPolarAngle={Math.PI / 2.1}
-          />
+          <SceneControls />
         </Canvas>
       </div>
     </main>
   );
 }
 
-function Sphere() {
-  const { roughness } = useControls({
+function Shape() {
+  const { roughness, metalness } = useControls("Material", {
     roughness: { value: 1, min: 0, max: 1 },
+    metalness: { value: 1, min: 0, max: 1 },
   });
 
   const [color, setColor] = useState("orange");
   const [scaleX, setScaleX] = useState(1);
   const [scaleY, setScaleY] = useState(1);
   const [scaleZ, setScaleZ] = useState(1);
-  const { scale } = useControls({
+  const { scale } = useControls("Shape", {
     scale: { value: 0.75, min: 0.75, max: 2 },
     color: {
       value: color,
@@ -88,16 +168,9 @@ function Sphere() {
       onChange: (value) => startTransition(() => setScaleZ(value)),
     },
   });
-  // const { horizontalPlane } = useControls({
-  //   horizontalPlane: { value: 64, min: 1, max: 64 },
-  // });
-  // const { verticalPlane } = useControls({
-  //   verticalPlane: { value: 64, min: 1, max: 64 },
-  // });
-  const [shapes, setShapes] = useState("sphere");
-  const { shape } = useControls({
+  const { shape } = useControls("Shape", {
     shape: {
-      value: shapes,
+      value: "sphere",
       options: [
         "sphere",
         "box",
@@ -145,14 +218,11 @@ function Sphere() {
           <planeGeometry args={[scale * 2, scale * 2, 8, 8]} />
         )}
         <meshStandardMaterial
-          metalness={1}
+          metalness={metalness}
           roughness={roughness}
           color={color}
         />
       </mesh>
     </Center>
   );
-}
-function Env() {
-  return <Environment preset={"sunset"} background blur={1} />;
 }
