@@ -12,10 +12,8 @@ import { startTransition, useState } from "react";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex"></div>
-
-      <div className="relative flex place-items-center h-[60vh] w-[60vw]">
+    <main className="h-screen w-screen overflow-hidden">
+      <div className="relative h-full w-full">
         <Canvas shadows camera={{ position: [0, 0, 4.5], fov: 50 }}>
           <group position={[0, -0.65, 0]}>
             <Sphere />
@@ -48,8 +46,6 @@ export default function Home() {
           />
         </Canvas>
       </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left"></div>
     </main>
   );
 }
@@ -102,7 +98,20 @@ function Sphere() {
   const { shape } = useControls({
     shape: {
       value: shapes,
-      options: ["sphere", "box"],
+      options: [
+        "sphere",
+        "box",
+        "cylinder",
+        "cone",
+        "torus",
+        "torusKnot",
+        "dodecahedron",
+        "icosahedron",
+        "octahedron",
+        "tetrahedron",
+        "capsule",
+        "plane",
+      ],
     },
   });
 
@@ -110,7 +119,31 @@ function Sphere() {
     <Center top>
       <mesh castShadow scale={[scaleX, scaleY, scaleZ]}>
         {shape === "sphere" && <sphereGeometry args={[scale, 64, 64]} />}
-        {shape === "box" && <boxGeometry args={[scale, 1, 1]} />}
+        {shape === "box" && <boxGeometry args={[scale, scale, scale]} />}
+        {shape === "cylinder" && (
+          <cylinderGeometry args={[scale, scale, scale * 2, 64]} />
+        )}
+        {shape === "cone" && <coneGeometry args={[scale, scale * 2, 64]} />}
+        {shape === "torus" && (
+          <torusGeometry args={[scale, scale * 0.4, 32, 64]} />
+        )}
+        {shape === "torusKnot" && (
+          <torusKnotGeometry args={[scale * 0.75, scale * 0.3, 128, 32]} />
+        )}
+        {shape === "dodecahedron" && (
+          <dodecahedronGeometry args={[scale, 0]} />
+        )}
+        {shape === "icosahedron" && (
+          <icosahedronGeometry args={[scale, 0]} />
+        )}
+        {shape === "octahedron" && <octahedronGeometry args={[scale, 0]} />}
+        {shape === "tetrahedron" && <tetrahedronGeometry args={[scale]} />}
+        {shape === "capsule" && (
+          <capsuleGeometry args={[scale * 0.5, scale, 16, 32]} />
+        )}
+        {shape === "plane" && (
+          <planeGeometry args={[scale * 2, scale * 2, 8, 8]} />
+        )}
         <meshStandardMaterial
           metalness={1}
           roughness={roughness}
