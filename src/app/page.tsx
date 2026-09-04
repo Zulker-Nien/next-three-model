@@ -12,9 +12,14 @@ import {
 import type { PresetsType } from "@react-three/drei/helpers/environment-assets";
 import { Suspense, startTransition, useState } from "react";
 import {
+  ModelCompliancePanel,
+  ModelHierarchy,
+  ModelInfoPanel,
   ModelLoader,
   ModelUploadOverlay,
+  type HierarchyNode,
   type LoadedModel,
+  type ModelStats,
 } from "./ModelUpload";
 
 function CameraControls() {
@@ -130,6 +135,8 @@ function SceneControls({ model }: { model: LoadedModel | null }) {
 
 export default function Home() {
   const [model, setModel] = useState<LoadedModel | null>(null);
+  const [stats, setStats] = useState<ModelStats | null>(null);
+  const [hierarchy, setHierarchy] = useState<HierarchyNode | null>(null);
 
   return (
     <main className="h-screen w-screen overflow-hidden">
@@ -138,10 +145,25 @@ export default function Home() {
           <SceneControls model={model} />
         </Canvas>
         <ModelUploadOverlay
-          onModel={setModel}
+          onModel={(m) => {
+            setStats(null);
+            setHierarchy(null);
+            setModel({
+              ...m,
+              onStats: (s) => setStats(s),
+              onHierarchy: (h) => setHierarchy(h),
+            });
+          }}
           hasModel={!!model}
-          onRemove={() => setModel(null)}
+          onRemove={() => {
+            setModel(null);
+            setStats(null);
+            setHierarchy(null);
+          }}
         />
+        <ModelInfoPanel stats={stats} />
+        <ModelHierarchy root={hierarchy} />
+        <ModelCompliancePanel stats={stats} />
       </div>
     </main>
   );
