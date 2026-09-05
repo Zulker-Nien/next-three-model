@@ -1,5 +1,6 @@
 "use client";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Euler, Quaternion, Vector3 } from "three";
 import type { PerspectiveCamera } from "three";
 import { useControls } from "leva";
 import {
@@ -10,7 +11,7 @@ import {
   OrbitControls,
 } from "@react-three/drei";
 import type { PresetsType } from "@react-three/drei/helpers/environment-assets";
-import { Suspense, startTransition, useRef, useState } from "react";
+import { Suspense, startTransition, useMemo, useRef, useState } from "react";
 import {
   ModelCompliancePanel,
   ModelHierarchy,
@@ -62,7 +63,9 @@ function CameraControls({
       min: 1,
       max: 15,
       onChange: (value) => {
-        camera.position.z = value;
+        if (activeCamera === "orbit") {
+          camera.position.z = value;
+        }
       },
     },
     activeCamera: {
@@ -79,13 +82,71 @@ function CameraControls({
           const modelCam = cameras.find((c) => c.name === value);
           if (modelCam) {
             camera.position.set(...modelCam.position);
-            camera.rotation.set(...modelCam.rotation);
             cam.fov = modelCam.fov;
             cam.updateProjectionMatrix();
           }
         }
         onActiveCameraChange(value);
       },
+    },
+  }, [cameras, activeCamera]);
+
+  return null;
+}
+
+const tmpCameraPos = new Vector3();
+const tmpCameraQuat = new Quaternion();
+
+function ModelCameraBinding({ modelCam }: { modelCam: ModelCameraInfo }) {
+  const { camera } = useThree();
+  const live = modelCam.object;
+
+  const target = useMemo(() => {
+    if (live) return null;
+    return new Vector3(...modelCam.position).addScaledVector(
+      new Vector3(0, 0, -1).applyEuler(new Euler(...modelCam.rotation)),
+      10,
+    );
+  }, [modelCam, live]);
+
+  useFrame(() => {
+    if (live) {
+      live.updateWorldMatrix(true, false);
+      camera.position.copy(live.getWorldPosition(tmpCameraPos));
+      camera.quaternion.copy(live.getWorldQuaternion(tmpCameraQuat));
+      return;
+    }
+    if (!target) return;
+    camera.position.set(...modelCam.position);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(target);
+  }, -1);
+
+  return null;
+}
+
+function AnimationControls({
+  animations,
+  playing,
+  activeAnimation,
+  onPlayingChange,
+  onAnimationChange,
+}: {
+  animations: string[];
+  playing: boolean;
+  activeAnimation: string | null;
+  onPlayingChange: (playing: boolean) => void;
+  onAnimationChange: (name: string) => void;
+}) {
+  useControls("Animation", {
+    play: {
+      value: playing,
+      onChange: (v: boolean) => onPlayingChange(v),
+    },
+    animation: {
+      value: activeAnimation ?? animations[0] ?? "none",
+      options: animations,
+      onChange: (v: string) => onAnimationChange(v),
     },
   });
 
@@ -97,11 +158,21 @@ function SceneControls({
   modelCameras,
   activeCamera,
   onActiveCameraChange,
+  animations,
+  playing,
+  activeAnimation,
+  onPlayingChange,
+  onAnimationChange,
 }: {
   model: LoadedModel | null;
   modelCameras: ModelCameraInfo[];
   activeCamera: string;
   onActiveCameraChange: (camera: string) => void;
+  animations: string[];
+  playing: boolean;
+  activeAnimation: string | null;
+  onPlayingChange: (playing: boolean) => void;
+  onAnimationChange: (name: string) => void;
 }) {
   const { envPreset } = useControls("Environment", {
     envPreset: {
@@ -144,12 +215,21 @@ function SceneControls({
     frames: { value: 200, min: 1, max: 400, step: 1 },
   });
 
+  const activeModelCam =
+    activeCamera !== "orbit"
+      ? modelCameras.find((c) => c.name === activeCamera) ?? null
+      : null;
+
   return (
     <>
       <group position={[0, -0.65, 0]}>
         {model ? (
           <Suspense fallback={null}>
-            <ModelLoader model={model} />
+            <ModelLoader
+              model={model}
+              playing={playing}
+              activeAnimation={activeAnimation}
+            />
           </Suspense>
         ) : (
           <Shape />
@@ -178,16 +258,27 @@ function SceneControls({
         blur={blur as unknown as number}
       />
       <OrbitControls
+        enabled={activeCamera === "orbit"}
         autoRotate={autoRotate}
         autoRotateSpeed={autoRotateSpeed}
         enableZoom={enableZoom}
         enablePan={enablePan}
       />
+      {activeModelCam && <ModelCameraBinding modelCam={activeModelCam} />}
       <CameraControls
         cameras={modelCameras}
         activeCamera={activeCamera}
         onActiveCameraChange={onActiveCameraChange}
       />
+      {animations.length > 0 && (
+        <AnimationControls
+          animations={animations}
+          playing={playing}
+          activeAnimation={activeAnimation}
+          onPlayingChange={onPlayingChange}
+          onAnimationChange={onAnimationChange}
+        />
+      )}
     </>
   );
 }
@@ -198,6 +289,9 @@ export default function Home() {
   const [hierarchy, setHierarchy] = useState<HierarchyNode | null>(null);
   const [modelCameras, setModelCameras] = useState<ModelCameraInfo[]>([]);
   const [activeCamera, setActiveCamera] = useState("orbit");
+  const [animations, setAnimations] = useState<string[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [activeAnimation, setActiveAnimation] = useState<string | null>(null);
 
   return (
     <main className="h-screen w-screen overflow-hidden">
@@ -209,6 +303,11 @@ export default function Home() {
             modelCameras={modelCameras}
             activeCamera={activeCamera}
             onActiveCameraChange={setActiveCamera}
+            animations={animations}
+            playing={playing}
+            activeAnimation={activeAnimation}
+            onPlayingChange={setPlaying}
+            onAnimationChange={setActiveAnimation}
           />
         </Canvas>
         <ModelUploadOverlay
@@ -216,12 +315,19 @@ export default function Home() {
             setStats(null);
             setHierarchy(null);
             setModelCameras([]);
+            setAnimations([]);
+            setPlaying(false);
+            setActiveAnimation(null);
             setActiveCamera("orbit");
             setModel({
               ...m,
               onStats: (s) => setStats(s),
               onHierarchy: (h) => setHierarchy(h),
               onCameras: (cams) => setModelCameras(cams),
+              onAnimations: (names) => {
+                setAnimations(names);
+                setActiveAnimation((prev) => prev ?? names[0] ?? null);
+              },
             });
           }}
           hasModel={!!model}
@@ -230,6 +336,9 @@ export default function Home() {
             setStats(null);
             setHierarchy(null);
             setModelCameras([]);
+            setAnimations([]);
+            setPlaying(false);
+            setActiveAnimation(null);
             setActiveCamera("orbit");
           }}
         />

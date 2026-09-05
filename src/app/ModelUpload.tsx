@@ -1,9 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useFBX, Center } from "@react-three/drei";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFBX, Center, useAnimations } from "@react-three/drei";
 import { useLoader } from "@react-three/fiber";
 import { useGltfWithKTX2 } from "./useGltfWithKTX2";
 import {
+  AnimationAction,
+  AnimationClip,
   BufferGeometry,
   Camera,
   Material,
@@ -195,6 +197,7 @@ export type ModelCameraInfo = {
   rotation: [number, number, number];
   fov: number;
   isPerspective: boolean;
+  object: Camera;
 };
 
 function extractCameras(object: Object3D): ModelCameraInfo[] {
@@ -215,6 +218,7 @@ function extractCameras(object: Object3D): ModelCameraInfo[] {
         rotation: [rotation.x, rotation.y, rotation.z],
         fov: child instanceof PerspectiveCamera ? child.fov : 50,
         isPerspective: child instanceof PerspectiveCamera,
+        object: child,
       });
     }
   });
@@ -230,6 +234,7 @@ export type LoadedModel = {
   onStats?: (stats: ModelStats) => void;
   onHierarchy?: (root: HierarchyNode) => void;
   onCameras?: (cameras: ModelCameraInfo[]) => void;
+  onAnimations?: (names: string[]) => void;
 };
 
 const ACCEPTED_EXTENSIONS: Record<string, ModelType> = {
@@ -247,14 +252,66 @@ function getModelType(filename: string): ModelType | null {
   return null;
 }
 
-export function ModelLoader({ model }: { model: LoadedModel }) {
-  if (model.type === "gltf") return <GltfModel model={model} />;
-  if (model.type === "fbx") return <FbxModel model={model} />;
-  return <StlModel model={model} />;
+function useAnimationPlayback(
+  animations: AnimationClip[],
+  actions: Record<string, AnimationAction | null>,
+  playing: boolean,
+  activeAnimation: string | null,
+) {
+  useEffect(() => {
+    if (!animations.length) return;
+    const name = activeAnimation ?? animations[0].name ?? "";
+    const running = Object.values(actions).filter(Boolean) as AnimationAction[];
+    const action = actions[name] ?? running[0];
+    if (!action) return;
+    running.forEach((a) => {
+      if (a !== action) a.stop();
+    });
+    if (playing) {
+      action.paused = false;
+      action.play();
+    } else {
+      action.paused = true;
+    }
+  }, [playing, activeAnimation, actions, animations]);
 }
 
-function GltfModel({ model }: { model: LoadedModel }) {
-  const { scene } = useGltfWithKTX2(model.url);
+export function ModelLoader({
+  model,
+  playing,
+  activeAnimation,
+}: {
+  model: LoadedModel;
+  playing: boolean;
+  activeAnimation: string | null;
+}) {
+  if (model.type === "gltf") {
+    return (
+      <GltfModel model={model} playing={playing} activeAnimation={activeAnimation} />
+    );
+  }
+  if (model.type === "fbx") {
+    return (
+      <FbxModel model={model} playing={playing} activeAnimation={activeAnimation} />
+    );
+  }
+  return (
+    <StlModel model={model} playing={playing} activeAnimation={activeAnimation} />
+  );
+}
+
+function GltfModel({
+  model,
+  playing,
+  activeAnimation,
+}: {
+  model: LoadedModel;
+  playing: boolean;
+  activeAnimation: string | null;
+}) {
+  const { scene, animations } = useGltfWithKTX2(model.url);
+  const { actions } = useAnimations(animations, scene);
+  useAnimationPlayback(animations, actions, playing, activeAnimation);
 
   useEffect(() => {
     if (model.onStats) {
@@ -266,7 +323,10 @@ function GltfModel({ model }: { model: LoadedModel }) {
     if (model.onCameras) {
       model.onCameras(extractCameras(scene));
     }
-  }, [scene, model]);
+    if (model.onAnimations) {
+      model.onAnimations(animations.map((a) => a.name || a.uuid));
+    }
+  }, [scene, model, animations]);
 
   return (
     <Center top>
@@ -275,8 +335,22 @@ function GltfModel({ model }: { model: LoadedModel }) {
   );
 }
 
-function FbxModel({ model }: { model: LoadedModel }) {
+function FbxModel({
+  model,
+  playing,
+  activeAnimation,
+}: {
+  model: LoadedModel;
+  playing: boolean;
+  activeAnimation: string | null;
+}) {
   const fbx = useFBX(model.url);
+  const animations = useMemo(
+    () => (fbx as Object3D & { animations?: AnimationClip[] }).animations ?? [],
+    [fbx],
+  );
+  const { actions } = useAnimations(animations, fbx);
+  useAnimationPlayback(animations, actions, playing, activeAnimation);
 
   useEffect(() => {
     if (model.onStats) {
@@ -288,7 +362,10 @@ function FbxModel({ model }: { model: LoadedModel }) {
     if (model.onCameras) {
       model.onCameras(extractCameras(fbx));
     }
-  }, [fbx, model]);
+    if (model.onAnimations) {
+      model.onAnimations(animations.map((a) => a.name || a.uuid));
+    }
+  }, [fbx, model, animations]);
 
   return (
     <Center top>
@@ -297,7 +374,13 @@ function FbxModel({ model }: { model: LoadedModel }) {
   );
 }
 
-function StlModel({ model }: { model: LoadedModel }) {
+function StlModel({
+  model,
+}: {
+  model: LoadedModel;
+  playing: boolean;
+  activeAnimation: string | null;
+}) {
   const geometry = useLoader(STLLoader, model.url);
 
   useEffect(() => {
